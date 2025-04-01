@@ -613,8 +613,106 @@ function initGraph() {
 
 // Toggle group expansion
 function toggleGroupExpansion(groupId) {
-    // This would be implemented to expand/collapse the flower diagram
-    console.log(`Toggle group ${groupId}`);
+    const graph = window.skillGraph; // Get the graph instance from the window object
+    if (!graph) return;
+    
+    // Find the group node
+    const groupNodeId = `group-${groupId}`;
+    const groupNode = graph.findById(groupNodeId);
+    if (!groupNode) return;
+    
+    const groupModel = groupNode.getModel();
+    const isExpanded = groupModel.expanded === true;
+    
+    // Find all child nodes
+    const childNodes = [];
+    const childEdges = [];
+    
+    // Get all nodes and edges
+    const nodes = graph.getNodes();
+    const edges = graph.getEdges();
+    
+    // Find children of this group
+    const group = nodeGroups[groupId];
+    if (!group) return;
+    
+    const childIds = group.children || [];
+    
+    if (isExpanded) {
+        // Collapse: Hide all child nodes and edges
+        childIds.forEach(childId => {
+            const childNode = graph.findById(childId);
+            if (childNode) {
+                graph.hideItem(childNode);
+                
+                // Hide edges connected to this child
+                edges.forEach(edge => {
+                    const edgeModel = edge.getModel();
+                    if (edgeModel.source === childId || edgeModel.target === childId) {
+                        graph.hideItem(edge);
+                    }
+                });
+            }
+        });
+        
+        // Update group node style
+        graph.updateItem(groupNode, {
+            expanded: false,
+            style: {
+                fill: '#fff',
+                stroke: '#1890ff',
+                lineWidth: 2
+            }
+        });
+        
+    } else {
+        // Expand: Show all child nodes in a flower pattern
+        const centerX = groupModel.x;
+        const centerY = groupModel.y;
+        const radius = 60; // Distance from center
+        
+        const visibleChildCount = Math.min(childIds.length, 6);
+        
+        // Show and position child nodes in a flower pattern
+        for (let i = 0; i < visibleChildCount; i++) {
+            const angle = (i * 2 * Math.PI) / visibleChildCount;
+            const childX = centerX + radius * Math.cos(angle);
+            const childY = centerY + radius * Math.sin(angle);
+            const childId = childIds[i];
+            
+            const childNode = graph.findById(childId);
+            if (childNode) {
+                // Show the node and update its position with animation
+                graph.showItem(childNode);
+                graph.updateItem(childNode, {
+                    x: childX,
+                    y: childY
+                });
+                
+                // Show edge from group to child
+                edges.forEach(edge => {
+                    const edgeModel = edge.getModel();
+                    if ((edgeModel.source === groupNodeId && edgeModel.target === childId) ||
+                        (edgeModel.target === groupNodeId && edgeModel.source === childId)) {
+                        graph.showItem(edge);
+                    }
+                });
+            }
+        }
+        
+        // Update group node style to indicate expansion
+        graph.updateItem(groupNode, {
+            expanded: true,
+            style: {
+                fill: '#e6f7ff',
+                stroke: '#1890ff',
+                lineWidth: 2
+            }
+        });
+    }
+    
+    // Update the graph
+    graph.refreshPositions();
 }
 
 // Show node details in the detail panel
@@ -662,6 +760,9 @@ function showNodeDetails(nodeId) {
 function init() {
     processData();
     const graph = initGraph();
+    
+    // Store graph instance in window for access in other functions
+    window.skillGraph = graph;
     
     // Set up close button for detail panel
     document.getElementById('close-detail').addEventListener('click', () => {
