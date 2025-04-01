@@ -3,60 +3,50 @@
 <head>
     <meta charset="utf-8">
     <title>NOI竞赛知识点</title>
-    <script src="https://unpkg.com/@antv/g6@5/dist/g6.min.js"></script>
+    <script src="https://gw.alipayobjects.com/os/lib/antv/g6/4.8.19/dist/g6.min.js"></script>
     <link rel="stylesheet" href="./src/styles.css">
 </head>
 <body>
     <div class="container">
         <h1>NOI竞赛知识点体系</h1>
         
-        <div class="skill-table-container">
-            <table id="skill-table" class="skill-table">
-                <thead>
-                    <tr>
-                        <th class="corner-cell"></th>
-                        <th>计算机基础与编程环境</th>
-                        <th>C++程序设计</th>
-                        <th>数据结构</th>
-                        <th>算法</th>
-                        <th>数学</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <th>入门级</th>
-                        <td id="basic-env" class="skill-cell"></td>
-                        <td id="basic-cpp" class="skill-cell"></td>
-                        <td id="basic-ds" class="skill-cell"></td>
-                        <td id="basic-algo" class="skill-cell"></td>
-                        <td id="basic-math" class="skill-cell"></td>
-                    </tr>
-                    <tr>
-                        <th>提高级</th>
-                        <td id="intermediate-env" class="skill-cell"></td>
-                        <td id="intermediate-cpp" class="skill-cell"></td>
-                        <td id="intermediate-ds" class="skill-cell"></td>
-                        <td id="intermediate-algo" class="skill-cell"></td>
-                        <td id="intermediate-math" class="skill-cell"></td>
-                    </tr>
-                    <tr>
-                        <th>NOI级</th>
-                        <td id="noi-env" class="skill-cell"></td>
-                        <td id="noi-cpp" class="skill-cell"></td>
-                        <td id="noi-ds" class="skill-cell"></td>
-                        <td id="noi-algo" class="skill-cell"></td>
-                        <td id="noi-math" class="skill-cell"></td>
-                    </tr>
-                </tbody>
-            </table>
+        <div id="skill-tree-container" class="skill-tree-container">
+            <!-- The skill tree will be rendered here by G6 -->
         </div>
         
         <div id="detail-panel" class="detail-panel">
-            <h3>知识点详情</h3>
+            <div class="detail-header">
+                <h3>知识点详情</h3>
+                <button id="close-detail" class="close-button">×</button>
+            </div>
             <div id="detail-content"></div>
         </div>
         
-        <div id="dependency-graph" class="dependency-graph"></div>
+        <div class="legend">
+            <div class="legend-title">难度级别</div>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="legend-color level-1"></span>
+                    <span class="legend-label">1级</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color level-3"></span>
+                    <span class="legend-label">3级</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color level-5"></span>
+                    <span class="legend-label">5级</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color level-7"></span>
+                    <span class="legend-label">7级</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color level-10"></span>
+                    <span class="legend-label">10级</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="./src/data.js"></script>

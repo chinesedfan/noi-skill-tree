@@ -1,159 +1,624 @@
 /* globals G6, data */
 
 // Define the categories and levels for organizing skills
-const categories = {
-    'env': '计算机基础与编程环境',
-    'cpp': 'C++程序设计',
-    'ds': '数据结构',
-    'algo': '算法',
-    'math': '数学'
-};
+const categories = [
+    { id: 'env', name: '计算机基础与编程环境', x: 0 },
+    { id: 'cpp', name: 'C++程序设计', x: 1 },
+    { id: 'ds', name: '数据结构', x: 2 },
+    { id: 'algo', name: '算法', x: 3 },
+    { id: 'math', name: '数学', x: 4 }
+];
 
-const levels = {
-    'basic': { name: '入门级', range: [1, 3] },
-    'intermediate': { name: '提高级', range: [4, 6] },
-    'noi': { name: 'NOI级', range: [7, 10] }
-};
-
-// Process nodes to categorize them
-const categorizedNodes = {
-    'basic-env': [], 'basic-cpp': [], 'basic-ds': [], 'basic-algo': [], 'basic-math': [],
-    'intermediate-env': [], 'intermediate-cpp': [], 'intermediate-ds': [], 'intermediate-algo': [], 'intermediate-math': [],
-    'noi-env': [], 'noi-cpp': [], 'noi-ds': [], 'noi-algo': [], 'noi-math': []
-};
+const levels = [
+    { id: 'basic', name: '入门级', range: [1, 3], y: 0 },
+    { id: 'intermediate', name: '提高级', range: [4, 6], y: 1 },
+    { id: 'noi', name: 'NOI级', range: [7, 10], y: 2 }
+];
 
 // Map node IDs to their objects for quick lookup
 const nodeMap = {};
+const nodeGroups = {};
 
-// Process data to categorize nodes
+// Process data to organize nodes
 function processData() {
+    // First pass: map nodes and identify parent-child relationships
     data.nodes.forEach(node => {
         // Store node in map for quick lookup
-        nodeMap[node.id] = node;
+        nodeMap[node.id] = {
+            ...node,
+            children: [],
+            parents: []
+        };
+    });
+    
+    // Second pass: build parent-child relationships
+    data.edges.forEach(edge => {
+        const source = nodeMap[edge.source];
+        const target = nodeMap[edge.target];
         
-        // Determine the level category
-        let levelCategory;
-        const level = node.data.level;
-        
-        if (level >= 1 && level <= 3) {
-            levelCategory = 'basic';
-        } else if (level >= 4 && level <= 6) {
-            levelCategory = 'intermediate';
-        } else {
-            levelCategory = 'noi';
+        if (source && target) {
+            source.children.push(target.id);
+            target.parents.push(source.id);
         }
-        
-        // Determine the subject category based on node ID
-        let subjectCategory;
-        const id = node.id;
-        
-        if (id.startsWith('2.1.1') || id.startsWith('2.2.0')) {
-            subjectCategory = 'env';
-        } else if (id.startsWith('2.1.2') || id.startsWith('2.2.1')) {
-            subjectCategory = 'cpp';
-        } else if (id.startsWith('2.1.3') || id.startsWith('2.2.2') || id.startsWith('2.3.1')) {
-            subjectCategory = 'ds';
-        } else if (id.startsWith('2.1.4') || id.startsWith('2.2.3') || id.startsWith('2.3.2')) {
-            subjectCategory = 'algo';
-        } else {
-            subjectCategory = 'math';
+    });
+    
+    // Group nodes by common prefixes (for flower diagrams)
+    const prefixMap = {};
+    
+    Object.keys(nodeMap).forEach(nodeId => {
+        // Extract prefix (e.g., "2.1.2.4" from "2.1.2.4.1")
+        const parts = nodeId.split('.');
+        if (parts.length > 3) {
+            const prefix = parts.slice(0, parts.length - 1).join('.');
+            if (!prefixMap[prefix]) {
+                prefixMap[prefix] = [];
+            }
+            prefixMap[prefix].push(nodeId);
         }
-        
-        // Add node to the appropriate category
-        const categoryKey = `${levelCategory}-${subjectCategory}`;
-        if (categorizedNodes[categoryKey]) {
-            categorizedNodes[categoryKey].push(node);
+    });
+    
+    // Create node groups for prefixes with multiple children
+    Object.keys(prefixMap).forEach(prefix => {
+        if (prefixMap[prefix].length > 2) {
+            nodeGroups[prefix] = {
+                children: prefixMap[prefix],
+                label: findCommonLabel(prefixMap[prefix])
+            };
         }
     });
 }
 
-// Populate the skill table with categorized nodes
-function populateSkillTable() {
-    for (const [categoryKey, nodes] of Object.entries(categorizedNodes)) {
-        const cell = document.getElementById(categoryKey);
-        if (cell && nodes.length > 0) {
-            nodes.forEach(node => {
-                const skillItem = document.createElement('div');
-                skillItem.className = `skill-item level-${node.data.level}`;
-                skillItem.dataset.id = node.id;
-                
-                const difficulty = document.createElement('span');
-                difficulty.className = 'difficulty';
-                difficulty.textContent = `【${node.data.level}】`;
-                
-                const content = document.createElement('span');
-                content.textContent = node.label;
-                
-                skillItem.appendChild(difficulty);
-                skillItem.appendChild(content);
-                
-                // Add click event listener
-                skillItem.addEventListener('click', () => handleSkillClick(node.id));
-                
-                cell.appendChild(skillItem);
-            });
+// Find common label prefix for a group of nodes
+function findCommonLabel(nodeIds) {
+    if (nodeIds.length === 0) return '';
+    
+    const labels = nodeIds.map(id => nodeMap[id].label);
+    const firstLabel = labels[0];
+    
+    // Find common words at the beginning
+    const words = firstLabel.split(/\s+/);
+    let commonPrefix = '';
+    
+    for (let i = 0; i < Math.min(3, words.length); i++) {
+        const currentPrefix = words.slice(0, i + 1).join(' ');
+        let isCommon = true;
+        
+        for (let j = 1; j < labels.length; j++) {
+            if (!labels[j].startsWith(currentPrefix)) {
+                isCommon = false;
+                break;
+            }
+        }
+        
+        if (isCommon) {
+            commonPrefix = currentPrefix;
+        } else {
+            break;
         }
     }
+    
+    return commonPrefix || '相关知识点';
 }
 
-// Handle skill item click
-function handleSkillClick(nodeId) {
-    // Clear previous highlights
-    clearHighlights();
-    
-    // Highlight the clicked item
-    highlightNode(nodeId);
-    
-    // Show dependencies
-    showDependencies(nodeId);
-    
-    // Show detail panel
-    showDetailPanel(nodeId);
-    
-    // Show dependency graph
-    showDependencyGraph(nodeId);
+// Truncate text to a certain length
+function truncateText(text, maxLength = 20) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
 }
 
-// Highlight a node and its dependencies
-function highlightNode(nodeId) {
-    const elements = document.querySelectorAll(`.skill-item[data-id="${nodeId}"]`);
-    elements.forEach(el => {
-        el.classList.add('highlighted');
-        el.classList.add('pulse');
+// Determine category and level for a node based on ID
+function getCategoryAndLevel(nodeId) {
+    let category, level;
+    
+    // Determine category based on node ID pattern
+    if (nodeId.startsWith('2.1.1') || nodeId.startsWith('2.2.0')) {
+        category = 'env';
+    } else if (nodeId.startsWith('2.1.2') || nodeId.startsWith('2.2.1')) {
+        category = 'cpp';
+    } else if (nodeId.startsWith('2.1.3') || nodeId.startsWith('2.2.2') || nodeId.startsWith('2.3.1')) {
+        category = 'ds';
+    } else if (nodeId.startsWith('2.1.4') || nodeId.startsWith('2.2.3') || nodeId.startsWith('2.3.2')) {
+        category = 'algo';
+    } else {
+        category = 'math';
+    }
+    
+    // Determine level based on node's level value
+    const levelValue = nodeMap[nodeId].data.level;
+    if (levelValue >= 1 && levelValue <= 3) {
+        level = 'basic';
+    } else if (levelValue >= 4 && levelValue <= 6) {
+        level = 'intermediate';
+    } else {
+        level = 'noi';
+    }
+    
+    return { category, level };
+}
+
+// Get color for level
+function getColorForLevel(level) {
+    const colorMap = {
+        1: '#e6f7ff',
+        2: '#bae7ff',
+        3: '#91d5ff',
+        4: '#69c0ff',
+        5: '#40a9ff',
+        6: '#1890ff',
+        7: '#096dd9',
+        8: '#0050b3',
+        9: '#003a8c',
+        10: '#002766'
+    };
+    
+    return colorMap[level] || '#91d5ff';
+}
+
+// Get text color based on background color
+function getTextColorForLevel(level) {
+    return level > 2 ? '#fff' : '#333';
+}
+
+// Create G6 graph data
+function createGraphData() {
+    const nodes = [];
+    const edges = [];
+    
+    // Create background grid areas as nodes
+    categories.forEach(category => {
+        levels.forEach(level => {
+            nodes.push({
+                id: `grid-${level.id}-${category.id}`,
+                x: 200 + category.x * 220 + 100,
+                y: 100 + level.y * 200 + 90,
+                type: 'rect',
+                size: [200, 180],
+                style: {
+                    fill: `var(--${category.id}-bg-color)`,
+                    stroke: 'rgba(0,0,0,0.05)',
+                    radius: 12
+                },
+                zIndex: 0
+            });
+        });
+    });
+    
+    // Create category labels
+    categories.forEach(category => {
+        nodes.push({
+            id: `cat-${category.id}`,
+            x: 200 + category.x * 220 + 100,
+            y: 50,
+            type: 'text',
+            label: category.name,
+            labelCfg: {
+                style: {
+                    fill: '#1890ff',
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                    textAlign: 'center'
+                }
+            },
+            zIndex: 1
+        });
+    });
+    
+    // Create level labels
+    levels.forEach(level => {
+        nodes.push({
+            id: `level-${level.id}`,
+            x: 100,
+            y: 100 + level.y * 200 + 90,
+            type: 'text',
+            label: level.name,
+            labelCfg: {
+                style: {
+                    fill: '#1890ff',
+                    fontSize: 14,
+                    fontWeight: 'bold',
+                    textAlign: 'right'
+                }
+            },
+            zIndex: 1
+        });
+    });
+    
+    // Create nodes for groups first (to avoid overlap)
+    Object.keys(nodeGroups).forEach(groupId => {
+        const group = nodeGroups[groupId];
+        const sampleNodeId = group.children[0];
+        const { category, level } = getCategoryAndLevel(sampleNodeId);
+        
+        const catObj = categories.find(c => c.id === category);
+        const levelObj = levels.find(l => l.id === level);
+        
+        if (catObj && levelObj) {
+            // Calculate position within the grid cell
+            const baseX = 200 + catObj.x * 220 + 100;
+            const baseY = 100 + levelObj.y * 200 + 90;
+            
+            // Add some randomness to position within the cell
+            const x = baseX + (Math.random() * 60 - 30);
+            const y = baseY + (Math.random() * 60 - 30);
+            
+            nodes.push({
+                id: `group-${groupId}`,
+                x,
+                y,
+                size: 40,
+                label: truncateText(group.label),
+                style: {
+                    fill: '#fff',
+                    stroke: '#1890ff',
+                    lineWidth: 2
+                },
+                labelCfg: {
+                    position: 'bottom',
+                    offset: 5,
+                    style: {
+                        fill: '#333'
+                    }
+                },
+                isGroup: true,
+                groupId,
+                tooltip: group.label,
+                zIndex: 2
+            });
+            
+            // Create petal nodes for children
+            const petalCount = Math.min(group.children.length, 6);
+            const radius = 60;
+            
+            for (let i = 0; i < petalCount; i++) {
+                const angle = (i * 2 * Math.PI) / petalCount;
+                const petalX = x + radius * Math.cos(angle);
+                const petalY = y + radius * Math.sin(angle);
+                const childId = group.children[i];
+                const node = nodeMap[childId];
+                
+                nodes.push({
+                    id: childId,
+                    x: petalX,
+                    y: petalY,
+                    size: 30,
+                    label: truncateText(node.label, 15),
+                    style: {
+                        fill: getColorForLevel(node.data.level),
+                        stroke: '#fff',
+                        lineWidth: 1
+                    },
+                    labelCfg: {
+                        position: 'bottom',
+                        offset: 5,
+                        style: {
+                            fill: getTextColorForLevel(node.data.level)
+                        }
+                    },
+                    level: node.data.level,
+                    originalId: childId,
+                    tooltip: node.label,
+                    zIndex: 3
+                });
+                
+                edges.push({
+                    source: `group-${groupId}`,
+                    target: childId,
+                    style: {
+                        stroke: '#ccc',
+                        endArrow: false
+                    }
+                });
+            }
+        }
+    });
+    
+    // Create nodes for individual nodes (not in groups)
+    Object.keys(nodeMap).forEach(nodeId => {
+        // Skip nodes that are part of a group
+        let isInGroup = false;
+        for (const groupId in nodeGroups) {
+            if (nodeGroups[groupId].children.includes(nodeId)) {
+                isInGroup = true;
+                break;
+            }
+        }
+        
+        if (!isInGroup) {
+            const node = nodeMap[nodeId];
+            const { category, level } = getCategoryAndLevel(nodeId);
+            
+            const catObj = categories.find(c => c.id === category);
+            const levelObj = levels.find(l => l.id === level);
+            
+            if (catObj && levelObj) {
+                // Calculate position within the grid cell
+                const baseX = 200 + catObj.x * 220 + 100;
+                const baseY = 100 + levelObj.y * 200 + 90;
+                
+                // Add some randomness to position within the cell
+                const x = baseX + (Math.random() * 80 - 40);
+                const y = baseY + (Math.random() * 80 - 40);
+                
+                nodes.push({
+                    id: nodeId,
+                    x,
+                    y,
+                    size: 30,
+                    label: truncateText(node.label, 15),
+                    style: {
+                        fill: getColorForLevel(node.data.level),
+                        stroke: '#fff',
+                        lineWidth: 1
+                    },
+                    labelCfg: {
+                        position: 'bottom',
+                        offset: 5,
+                        style: {
+                            fill: getTextColorForLevel(node.data.level)
+                        }
+                    },
+                    level: node.data.level,
+                    originalId: nodeId,
+                    tooltip: node.label,
+                    zIndex: 3
+                });
+            }
+        }
+    });
+    
+    // Create edges between individual nodes
+    data.edges.forEach(edge => {
+        // Skip edges if either source or target is in a group
+        let sourceInGroup = false;
+        let targetInGroup = false;
+        
+        for (const groupId in nodeGroups) {
+            if (nodeGroups[groupId].children.includes(edge.source)) {
+                sourceInGroup = true;
+            }
+            if (nodeGroups[groupId].children.includes(edge.target)) {
+                targetInGroup = true;
+            }
+        }
+        
+        if (!sourceInGroup && !targetInGroup) {
+            edges.push({
+                source: edge.source,
+                target: edge.target,
+                style: {
+                    stroke: '#ccc',
+                    lineWidth: 1,
+                    endArrow: {
+                        path: G6.Arrow.triangle(4, 6, 0),
+                        fill: '#ccc'
+                    }
+                }
+            });
+        }
+    });
+    
+    return {
+        nodes,
+        edges
+    };
+}
+
+// Register custom node with badge
+function registerCustomNode() {
+    G6.registerNode('node-with-badge', {
+        draw(cfg, group) {
+            const { size, style, labelCfg } = cfg;
+            
+            // Draw main circle
+            const circle = group.addShape('circle', {
+                attrs: {
+                    x: 0,
+                    y: 0,
+                    r: size / 2,
+                    ...style
+                },
+                name: 'circle-shape'
+            });
+            
+            // Draw badge if level is provided
+            if (cfg.level) {
+                group.addShape('circle', {
+                    attrs: {
+                        x: size / 2 - 5,
+                        y: -size / 2 + 5,
+                        r: 8,
+                        fill: '#fff',
+                        stroke: '#1890ff',
+                        lineWidth: 1
+                    },
+                    name: 'badge-circle'
+                });
+                
+                group.addShape('text', {
+                    attrs: {
+                        text: cfg.level,
+                        x: size / 2 - 5,
+                        y: -size / 2 + 5,
+                        textAlign: 'center',
+                        textBaseline: 'middle',
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                        fill: '#1890ff'
+                    },
+                    name: 'badge-text'
+                });
+            }
+            
+            return circle;
+        },
+        
+        // Update node style when state changes
+        setState(name, value, item) {
+            return
+            const group = item.getContainer();
+            const shape = group.get('children')[0]; // Get the circle shape
+            
+            if (name === 'hover') {
+                if (value) {
+                    shape.attr('lineWidth', 3);
+                    shape.attr('shadowColor', '#1890ff');
+                    shape.attr('shadowBlur', 10);
+                } else {
+                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
+                    shape.attr('shadowColor', null);
+                    shape.attr('shadowBlur', 0);
+                }
+            }
+            
+            if (name === 'selected') {
+                if (value) {
+                    shape.attr('stroke', '#ff4d4f');
+                    shape.attr('lineWidth', 3);
+                } else {
+                    shape.attr('stroke', shape.get('originAttrs').stroke || '#fff');
+                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
+                }
+            }
+        }
     });
 }
 
-// Clear all highlights
-function clearHighlights() {
-    const elements = document.querySelectorAll('.skill-item.highlighted');
-    elements.forEach(el => {
-        el.classList.remove('highlighted');
-        el.classList.remove('pulse');
+// Initialize G6 graph
+function initGraph() {
+    const container = document.getElementById('skill-tree-container');
+    
+    // Register custom node
+    registerCustomNode();
+    
+    // Create graph instance
+    const graph = new G6.Graph({
+        container: 'skill-tree-container',
+        width: container.offsetWidth,
+        height: container.offsetHeight,
+        modes: {
+            default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'activate-relations'],
+            edit: ['click-select']
+        },
+        defaultNode: {
+            type: 'node-with-badge',
+            size: 30,
+            style: {
+                fill: '#91d5ff',
+                stroke: '#fff',
+                lineWidth: 1
+            },
+            labelCfg: {
+                position: 'bottom',
+                offset: 10,
+                style: {
+                    fill: '#333',
+                    fontSize: 12
+                }
+            }
+        },
+        defaultEdge: {
+            style: {
+                stroke: '#ccc',
+                lineWidth: 1,
+                endArrow: true
+            }
+        },
+        fitView: true,
+        fitViewPadding: [50, 50, 50, 50],
+        animate: true,
+        nodeStateStyles: {
+            hover: {
+                lineWidth: 3,
+                shadowColor: '#1890ff',
+                shadowBlur: 10
+            },
+            selected: {
+                stroke: '#ff4d4f',
+                lineWidth: 3
+            }
+        }
     });
     
-    // Hide detail panel
-    document.getElementById('detail-panel').style.display = 'none';
-    
-    // Hide dependency graph
-    document.getElementById('dependency-graph').style.display = 'none';
-}
-
-// Show dependencies of a node
-function showDependencies(nodeId) {
-    // Find all edges where this node is source or target
-    const dependencies = data.edges.filter(edge => 
-        edge.source === nodeId || edge.target === nodeId
-    );
-    
-    // Highlight all connected nodes
-    dependencies.forEach(edge => {
-        const connectedId = edge.source === nodeId ? edge.target : edge.source;
-        highlightNode(connectedId);
+    // Create tooltip
+    const tooltip = new G6.Tooltip({
+        offsetX: 10,
+        offsetY: 10,
+        itemTypes: ['node'],
+        getContent: (e) => {
+            const model = e.item.getModel();
+            if (model.tooltip) {
+                const div = document.createElement('div');
+                div.style.padding = '10px';
+                div.style.width = 'max-content';
+                div.style.maxWidth = '200px';
+                div.style.fontSize = '12px';
+                div.style.color = '#333';
+                div.innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 5px;">${model.tooltip}</div>
+                    ${model.level ? `<div>难度级别: ${model.level}</div>` : ''}
+                `;
+                return div;
+            }
+            return '';
+        }
     });
+    
+    graph.addPlugin(tooltip);
+    
+    // Load data and render
+    const graphData = createGraphData();
+    graph.data(graphData);
+    graph.render();
+    
+    // Add event listeners
+    graph.on('node:click', (e) => {
+        const model = e.item.getModel();
+        
+        // Clear previous selections
+        graph.getNodes().forEach(node => {
+            graph.clearItemStates(node);
+        });
+        
+        // Set selected state
+        graph.setItemState(e.item, 'selected', true);
+        
+        if (model.isGroup) {
+            // Handle group click - expand/collapse
+            toggleGroupExpansion(model.groupId);
+        } else if (model.originalId) {
+            // Handle node click - show details
+            showNodeDetails(model.originalId);
+        }
+    });
+    
+    // Add hover effect
+    graph.on('node:mouseenter', (e) => {
+        graph.setItemState(e.item, 'hover', true);
+    });
+    
+    graph.on('node:mouseleave', (e) => {
+        graph.setItemState(e.item, 'hover', false);
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (graph) {
+            graph.changeSize(container.offsetWidth, container.offsetHeight);
+            graph.fitView();
+        }
+    });
+    
+    return graph;
 }
 
-// Show detail panel for a node
-function showDetailPanel(nodeId) {
+// Toggle group expansion
+function toggleGroupExpansion(groupId) {
+    // This would be implemented to expand/collapse the flower diagram
+    console.log(`Toggle group ${groupId}`);
+}
+
+// Show node details in the detail panel
+function showNodeDetails(nodeId) {
     const node = nodeMap[nodeId];
     if (!node) return;
     
@@ -164,13 +629,11 @@ function showDetailPanel(nodeId) {
     let html = `
         <h4>${node.label}</h4>
         <p><strong>难度级别:</strong> ${node.data.level}</p>
-        <p><strong>ID:</strong> ${node.id}</p>
+        <p><strong>ID:</strong> ${nodeId}</p>
     `;
     
     // Find prerequisites (nodes that point to this node)
-    const prerequisites = data.edges
-        .filter(edge => edge.target === nodeId)
-        .map(edge => nodeMap[edge.source]);
+    const prerequisites = node.parents.map(id => nodeMap[id]);
     
     if (prerequisites.length > 0) {
         html += '<h5>前置知识点:</h5><ul>';
@@ -181,9 +644,7 @@ function showDetailPanel(nodeId) {
     }
     
     // Find dependent nodes (nodes that this node points to)
-    const dependents = data.edges
-        .filter(edge => edge.source === nodeId)
-        .map(edge => nodeMap[edge.target]);
+    const dependents = node.children.map(id => nodeMap[id]);
     
     if (dependents.length > 0) {
         html += '<h5>后续知识点:</h5><ul>';
@@ -197,100 +658,15 @@ function showDetailPanel(nodeId) {
     detailPanel.style.display = 'block';
 }
 
-// Show dependency graph using G6
-function showDependencyGraph(nodeId) {
-    const graphContainer = document.getElementById('dependency-graph');
-    graphContainer.style.display = 'block';
-    graphContainer.innerHTML = '';
-    
-    // Find all connected nodes (1-level deep)
-    const connectedNodes = new Set([nodeId]);
-    data.edges.forEach(edge => {
-        if (edge.source === nodeId) connectedNodes.add(edge.target);
-        if (edge.target === nodeId) connectedNodes.add(edge.source);
-    });
-    
-    // Create subgraph data
-    const subgraphData = {
-        nodes: Array.from(connectedNodes).map(id => {
-            const node = nodeMap[id];
-            return {
-                id: node.id,
-                label: node.label,
-                style: {
-                    fill: getColorForLevel(node.data.level),
-                    stroke: id === nodeId ? '#ff4d4f' : '#91d5ff',
-                    lineWidth: id === nodeId ? 2 : 1
-                },
-                labelCfg: {
-                    style: {
-                        fill: node.data.level > 2 ? 'white' : 'black',
-                        fontSize: id === nodeId ? 14 : 12,
-                        fontWeight: id === nodeId ? 'bold' : 'normal'
-                    }
-                }
-            };
-        }),
-        edges: data.edges.filter(edge => 
-            connectedNodes.has(edge.source) && connectedNodes.has(edge.target)
-        ).map(edge => ({
-            source: edge.source,
-            target: edge.target,
-            style: {
-                stroke: '#91d5ff',
-                lineWidth: 1,
-                endArrow: true
-            }
-        }))
-    };
-    
-    // Initialize G6 graph
-    const graph = new G6.Graph({
-        container: 'dependency-graph',
-        width: graphContainer.offsetWidth,
-        height: graphContainer.offsetHeight,
-        modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node']
-        },
-        layout: {
-            type: 'force',
-            preventOverlap: true,
-            linkDistance: 100,
-            nodeStrength: -50,
-            edgeStrength: 0.1
-        },
-        defaultNode: {
-            size: 40,
-            type: 'circle',
-            labelCfg: {
-                position: 'bottom',
-                offset: 10
-            }
-        },
-        defaultEdge: {
-            type: 'cubic',
-            style: {
-                endArrow: true
-            }
-        }
-    });
-    
-    graph.data(subgraphData);
-    graph.render();
-    
-    // Center the graph on the selected node
-    graph.focusItem(nodeId, true);
-}
-
-// Helper function to get color for level
-function getColorForLevel(level) {
-    return `var(--level-${level}-color)`;
-}
-
 // Initialize the application
 function init() {
     processData();
-    populateSkillTable();
+    const graph = initGraph();
+    
+    // Set up close button for detail panel
+    document.getElementById('close-detail').addEventListener('click', () => {
+        document.getElementById('detail-panel').style.display = 'none';
+    });
 }
 
 // Start the application when DOM is loaded
