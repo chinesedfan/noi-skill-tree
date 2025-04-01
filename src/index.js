@@ -379,20 +379,21 @@ function createGraphData() {
                             style: {
                                 fill: getColorForLevel(childNode.data.level),
                                 stroke: '#fff',
-                                lineWidth: 1
+                                lineWidth: 1,
+                                opacity: 0 // Initially hidden
                             },
                             labelCfg: {
                                 position: 'bottom',
                                 offset: 5,
                                 style: {
-                                    fill: getTextColorForLevel(childNode.data.level)
+                                    fill: getTextColorForLevel(childNode.data.level),
+                                    opacity: 0 // Hide the label
                                 }
                             },
                             level: childNode.data.level,
                             originalId: childId,
                             tooltip: childNode.label,
-                            zIndex: 3,
-                            visible: false // Initially hidden
+                            zIndex: 3
                         };
                         
                         nodes.push(childNodeObj);
@@ -403,9 +404,9 @@ function createGraphData() {
                             target: childId,
                             style: {
                                 stroke: '#ccc',
-                                endArrow: false
-                            },
-                            visible: false // Initially hidden
+                                endArrow: false,
+                                opacity: 0 // Initially hidden
+                            }
                         });
                     }
                 }
@@ -490,32 +491,41 @@ function toggleGroupExpansion(groupId) {
     const groupModel = groupNode.getModel();
     const isExpanded = groupModel.expanded === true;
     
-    // Find all child nodes
-    const childNodes = [];
-    const childEdges = [];
-    
-    // Get all nodes and edges
-    const nodes = graph.getNodes();
-    const edges = graph.getEdges();
-    
     // Find children of this group
     const group = nodeGroups[groupId];
     if (!group) return;
     
     const childIds = group.children || [];
     
+    // Show drawer with child nodes information
+    showDrawer(groupId, childIds);
+    
     if (isExpanded) {
-        // Collapse: Hide all child nodes and edges
+        // Collapse: Update child nodes to be invisible
         childIds.forEach(childId => {
             const childNode = graph.findById(childId);
             if (childNode) {
-                graph.hideItem(childNode);
+                // Instead of hiding, we'll update the node to have opacity 0
+                graph.updateItem(childNode, {
+                    style: {
+                        opacity: 0
+                    },
+                    labelCfg: {
+                        style: {
+                            opacity: 0 // Hide the label
+                        }
+                    }
+                });
                 
-                // Hide edges connected to this child
-                edges.forEach(edge => {
+                // Find and update edges connected to this child
+                graph.getEdges().forEach(edge => {
                     const edgeModel = edge.getModel();
                     if (edgeModel.source === groupNodeId && edgeModel.target === childId) {
-                        graph.hideItem(edge);
+                        graph.updateItem(edge, {
+                            style: {
+                                opacity: 0
+                            }
+                        });
                     }
                 });
             }
@@ -545,21 +555,32 @@ function toggleGroupExpansion(groupId) {
             const childX = centerX + radius * Math.cos(angle);
             const childY = centerY + radius * Math.sin(angle);
             const childId = childIds[i];
-            const childNode = nodeMap[childId];
             
+            const childNode = graph.findById(childId);
             if (childNode) {
-                // Show the node and update its position with animation
-                graph.showItem(childNode);
+                // Instead of showing, we'll update the node to have opacity 1
                 graph.updateItem(childNode, {
                     x: childX,
-                    y: childY
+                    y: childY,
+                    style: {
+                        opacity: 1
+                    },
+                    labelCfg: {
+                        style: {
+                            opacity: 1 // Show the label
+                        }
+                    }
                 });
                 
-                // Show edge from group to child
-                edges.forEach(edge => {
+                // Find and update edges connected to this child
+                graph.getEdges().forEach(edge => {
                     const edgeModel = edge.getModel();
                     if (edgeModel.source === groupNodeId && edgeModel.target === childId) {
-                        graph.showItem(edge);
+                        graph.updateItem(edge, {
+                            style: {
+                                opacity: 1
+                            }
+                        });
                     }
                 });
             }
@@ -579,6 +600,76 @@ function toggleGroupExpansion(groupId) {
     // Update the graph
     graph.refreshPositions();
 }
+
+// Function to show drawer with group node children
+function showDrawer(groupId, childIds) {
+    const drawer = document.getElementById('drawer-panel');
+    const drawerTitle = document.getElementById('drawer-title');
+    const drawerList = document.getElementById('drawer-list');
+    
+    // Clear previous content
+    drawerList.innerHTML = '';
+    
+    // Set drawer title
+    const groupTitle = nodeGroups[groupId].label || '知识点分组';
+    drawerTitle.textContent = groupTitle;
+    
+    // Add child nodes to the drawer list
+    childIds.forEach(childId => {
+        const childNode = nodeMap[childId];
+        if (!childNode) return;
+        
+        const listItem = document.createElement('li');
+        listItem.className = 'drawer-list-item';
+        listItem.dataset.nodeId = childId;
+        
+        const level = childNode.data.level || 1;
+        
+        // Create the HTML structure for the list item
+        listItem.innerHTML = `
+            <div class="drawer-list-item-badge level-${level}">${level}</div>
+            <div class="drawer-list-item-content">
+                <div class="drawer-list-item-title">${childNode.label}</div>
+                <div class="drawer-list-item-desc">${childNode.data.description || ''}</div>
+            </div>
+        `;
+        
+        // Add click event to focus on the node
+        listItem.addEventListener('click', () => {
+            const graph = window.skillGraph;
+            if (!graph) return;
+            
+            const node = graph.findById(childId);
+            if (node) {
+                // Focus on the node
+                graph.focusItem(node);
+                
+                // Highlight the node temporarily
+                graph.setItemState(node, 'highlight', true);
+                setTimeout(() => {
+                    graph.setItemState(node, 'highlight', false);
+                }, 2000);
+            }
+        });
+        
+        drawerList.appendChild(listItem);
+    });
+    
+    // Show the drawer
+    drawer.style.display = 'flex';
+    setTimeout(() => {
+        drawer.classList.add('open');
+    }, 10);
+}
+
+// Close drawer when close button is clicked
+document.getElementById('close-drawer').addEventListener('click', () => {
+    const drawer = document.getElementById('drawer-panel');
+    drawer.classList.remove('open');
+    setTimeout(() => {
+        drawer.style.display = 'none';
+    }, 300); // Wait for transition to complete
+});
 
 // Initialize G6 graph
 function initGraph() {
@@ -635,6 +726,21 @@ function initGraph() {
             }
         }
     });
+    
+    // Register node states for highlighting
+    // G6.registerNodeState({
+    //     highlight: {
+    //         stroke: '#ffcc00',
+    //         lineWidth: 3,
+    //         animate: true,
+    //         animateCfg: {
+    //             duration: 300,
+    //             easing: 'easeCubic',
+    //             repeat: true,
+    //             delay: 0
+    //         }
+    //     }
+    // });
     
     // Create tooltip
     const tooltip = new G6.Tooltip({
