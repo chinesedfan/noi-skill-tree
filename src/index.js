@@ -223,7 +223,26 @@ function createGraphData() {
         });
     });
     
-    // Create nodes for groups first (to avoid overlap)
+    // Track nodes by grid cell for positioning
+    const gridCells = {};
+    categories.forEach(category => {
+        levels.forEach(level => {
+            const cellKey = `${level.id}-${category.id}`;
+            gridCells[cellKey] = {
+                nodes: [],
+                groupNodes: [],
+                individualNodes: [],
+                x: 200 + category.x * 220 + 100,
+                y: 100 + level.y * 200 + 90,
+                width: 180,
+                height: 160
+            };
+        });
+    });
+    
+    // First pass: collect nodes by cell
+    
+    // Add group nodes to their cells
     Object.keys(nodeGroups).forEach(groupId => {
         const group = nodeGroups[groupId];
         const sampleNodeId = group.children[0];
@@ -233,86 +252,22 @@ function createGraphData() {
         const levelObj = levels.find(l => l.id === level);
         
         if (catObj && levelObj) {
-            // Calculate position within the grid cell
-            const baseX = 200 + catObj.x * 220 + 100;
-            const baseY = 100 + levelObj.y * 200 + 90;
+            const cellKey = `${levelObj.id}-${catObj.id}`;
+            const cell = gridCells[cellKey];
             
-            // Add some randomness to position within the cell
-            const x = baseX + (Math.random() * 60 - 30);
-            const y = baseY + (Math.random() * 60 - 30);
-            
-            nodes.push({
-                id: `group-${groupId}`,
-                x,
-                y,
-                size: 40,
-                label: truncateText(group.label),
-                style: {
-                    fill: '#fff',
-                    stroke: '#1890ff',
-                    lineWidth: 2
-                },
-                labelCfg: {
-                    position: 'bottom',
-                    offset: 5,
-                    style: {
-                        fill: '#333'
-                    }
-                },
-                isGroup: true,
-                groupId,
-                tooltip: group.label,
-                zIndex: 2
-            });
-            
-            // Create petal nodes for children
-            const petalCount = Math.min(group.children.length, 6);
-            const radius = 60;
-            
-            for (let i = 0; i < petalCount; i++) {
-                const angle = (i * 2 * Math.PI) / petalCount;
-                const petalX = x + radius * Math.cos(angle);
-                const petalY = y + radius * Math.sin(angle);
-                const childId = group.children[i];
-                const node = nodeMap[childId];
-                
-                nodes.push({
-                    id: childId,
-                    x: petalX,
-                    y: petalY,
-                    size: 30,
-                    label: truncateText(node.label, 15),
-                    style: {
-                        fill: getColorForLevel(node.data.level),
-                        stroke: '#fff',
-                        lineWidth: 1
-                    },
-                    labelCfg: {
-                        position: 'bottom',
-                        offset: 5,
-                        style: {
-                            fill: getTextColorForLevel(node.data.level)
-                        }
-                    },
-                    level: node.data.level,
-                    originalId: childId,
-                    tooltip: node.label,
-                    zIndex: 3
-                });
-                
-                edges.push({
-                    source: `group-${groupId}`,
-                    target: childId,
-                    style: {
-                        stroke: '#ccc',
-                        endArrow: false
-                    }
+            if (cell) {
+                cell.groupNodes.push({
+                    id: `group-${groupId}`,
+                    groupId,
+                    label: truncateText(group.label),
+                    children: group.children,
+                    tooltip: group.label
                 });
             }
         }
     });
     
-    // Create nodes for individual nodes (not in groups)
+    // Add individual nodes to their cells
     Object.keys(nodeMap).forEach(nodeId => {
         // Skip nodes that are part of a group
         let isInGroup = false;
@@ -331,22 +286,139 @@ function createGraphData() {
             const levelObj = levels.find(l => l.id === level);
             
             if (catObj && levelObj) {
-                // Calculate position within the grid cell
-                const baseX = 200 + catObj.x * 220 + 100;
-                const baseY = 100 + levelObj.y * 200 + 90;
+                const cellKey = `${levelObj.id}-${catObj.id}`;
+                const cell = gridCells[cellKey];
                 
-                // Add some randomness to position within the cell
-                const x = baseX + (Math.random() * 80 - 40);
-                const y = baseY + (Math.random() * 80 - 40);
+                if (cell) {
+                    cell.individualNodes.push({
+                        id: nodeId,
+                        label: truncateText(node.label, 15),
+                        level: node.data.level,
+                        originalId: nodeId,
+                        tooltip: node.label
+                    });
+                }
+            }
+        }
+    });
+    
+    // Second pass: position nodes in a grid pattern within each cell
+    Object.values(gridCells).forEach(cell => {
+        // Combine group and individual nodes
+        cell.nodes = [...cell.groupNodes, ...cell.individualNodes];
+        
+        if (cell.nodes.length === 0) return;
+        
+        const nodeCount = cell.nodes.length;
+        
+        // Determine grid dimensions
+        const cols = Math.ceil(Math.sqrt(nodeCount));
+        const rows = Math.ceil(nodeCount / cols);
+        
+        const cellWidth = cell.width / cols;
+        const cellHeight = cell.height / rows;
+        
+        // Position nodes in a grid pattern
+        cell.nodes.forEach((nodeInfo, index) => {
+            const row = Math.floor(index / cols);
+            const col = index % cols;
+            
+            // Calculate position
+            const x = cell.x - cell.width/2 + cellWidth/2 + col * cellWidth;
+            const y = cell.y - cell.height/2 + cellHeight/2 + row * cellHeight;
+            
+            if (nodeInfo.groupId) {
+                // This is a group node
+                const node = {
+                    id: nodeInfo.id,
+                    x,
+                    y,
+                    size: 40,
+                    label: nodeInfo.label,
+                    style: {
+                        fill: '#fff',
+                        stroke: '#1890ff',
+                        lineWidth: 2
+                    },
+                    labelCfg: {
+                        position: 'bottom',
+                        offset: 5,
+                        style: {
+                            fill: '#333'
+                        }
+                    },
+                    isGroup: true,
+                    groupId: nodeInfo.groupId,
+                    tooltip: nodeInfo.tooltip,
+                    zIndex: 2,
+                    expanded: false // Set groups to collapsed by default
+                };
                 
-                nodes.push({
-                    id: nodeId,
+                nodes.push(node);
+                
+                // Create child nodes (initially hidden)
+                const childIds = nodeInfo.children || [];
+                const petalCount = Math.min(childIds.length, 6);
+                const radius = 60;
+                
+                for (let i = 0; i < petalCount; i++) {
+                    const angle = (i * 2 * Math.PI) / petalCount;
+                    const petalX = x + radius * Math.cos(angle);
+                    const petalY = y + radius * Math.sin(angle);
+                    const childId = childIds[i];
+                    const childNode = nodeMap[childId];
+                    
+                    if (childNode) {
+                        // Add child node (initially hidden)
+                        const childNodeObj = {
+                            id: childId,
+                            x: petalX,
+                            y: petalY,
+                            size: 30,
+                            label: truncateText(childNode.label, 15),
+                            style: {
+                                fill: getColorForLevel(childNode.data.level),
+                                stroke: '#fff',
+                                lineWidth: 1
+                            },
+                            labelCfg: {
+                                position: 'bottom',
+                                offset: 5,
+                                style: {
+                                    fill: getTextColorForLevel(childNode.data.level)
+                                }
+                            },
+                            level: childNode.data.level,
+                            originalId: childId,
+                            tooltip: childNode.label,
+                            zIndex: 3,
+                            visible: false // Initially hidden
+                        };
+                        
+                        nodes.push(childNodeObj);
+                        
+                        // Add edge (initially hidden)
+                        edges.push({
+                            source: nodeInfo.id,
+                            target: childId,
+                            style: {
+                                stroke: '#ccc',
+                                endArrow: false
+                            },
+                            visible: false // Initially hidden
+                        });
+                    }
+                }
+            } else {
+                // This is an individual node
+                const node = {
+                    id: nodeInfo.id,
                     x,
                     y,
                     size: 30,
-                    label: truncateText(node.label, 15),
+                    label: nodeInfo.label,
                     style: {
-                        fill: getColorForLevel(node.data.level),
+                        fill: getColorForLevel(nodeInfo.level),
                         stroke: '#fff',
                         lineWidth: 1
                     },
@@ -354,16 +426,18 @@ function createGraphData() {
                         position: 'bottom',
                         offset: 5,
                         style: {
-                            fill: getTextColorForLevel(node.data.level)
+                            fill: getTextColorForLevel(nodeInfo.level)
                         }
                     },
-                    level: node.data.level,
-                    originalId: nodeId,
-                    tooltip: node.label,
+                    level: nodeInfo.level,
+                    originalId: nodeInfo.originalId,
+                    tooltip: nodeInfo.tooltip,
                     zIndex: 3
-                });
+                };
+                
+                nodes.push(node);
             }
-        }
+        });
     });
     
     // Create edges between individual nodes
@@ -403,84 +477,107 @@ function createGraphData() {
     };
 }
 
-// Register custom node with badge
-function registerCustomNode() {
-    G6.registerNode('node-with-badge', {
-        draw(cfg, group) {
-            const { size, style, labelCfg } = cfg;
+// Toggle group expansion
+function toggleGroupExpansion(groupId) {
+    const graph = window.skillGraph; // Get the graph instance from the window object
+    if (!graph) return;
+    
+    // Find the group node
+    const groupNodeId = `group-${groupId}`;
+    const groupNode = graph.findById(groupNodeId);
+    if (!groupNode) return;
+    
+    const groupModel = groupNode.getModel();
+    const isExpanded = groupModel.expanded === true;
+    
+    // Find all child nodes
+    const childNodes = [];
+    const childEdges = [];
+    
+    // Get all nodes and edges
+    const nodes = graph.getNodes();
+    const edges = graph.getEdges();
+    
+    // Find children of this group
+    const group = nodeGroups[groupId];
+    if (!group) return;
+    
+    const childIds = group.children || [];
+    
+    if (isExpanded) {
+        // Collapse: Hide all child nodes and edges
+        childIds.forEach(childId => {
+            const childNode = graph.findById(childId);
+            if (childNode) {
+                graph.hideItem(childNode);
+                
+                // Hide edges connected to this child
+                edges.forEach(edge => {
+                    const edgeModel = edge.getModel();
+                    if (edgeModel.source === groupNodeId && edgeModel.target === childId) {
+                        graph.hideItem(edge);
+                    }
+                });
+            }
+        });
+        
+        // Update group node style
+        graph.updateItem(groupNode, {
+            expanded: false,
+            style: {
+                fill: '#fff',
+                stroke: '#1890ff',
+                lineWidth: 2
+            }
+        });
+        
+    } else {
+        // Expand: Show all child nodes in a flower pattern
+        const centerX = groupModel.x;
+        const centerY = groupModel.y;
+        const radius = 60; // Distance from center
+        
+        const visibleChildCount = Math.min(childIds.length, 6);
+        
+        // Show and position child nodes in a flower pattern
+        for (let i = 0; i < visibleChildCount; i++) {
+            const angle = (i * 2 * Math.PI) / visibleChildCount;
+            const childX = centerX + radius * Math.cos(angle);
+            const childY = centerY + radius * Math.sin(angle);
+            const childId = childIds[i];
+            const childNode = nodeMap[childId];
             
-            // Draw main circle
-            const circle = group.addShape('circle', {
-                attrs: {
-                    x: 0,
-                    y: 0,
-                    r: size / 2,
-                    ...style
-                },
-                name: 'circle-shape'
-            });
-            
-            // Draw badge if level is provided
-            if (cfg.level) {
-                group.addShape('circle', {
-                    attrs: {
-                        x: size / 2 - 5,
-                        y: -size / 2 + 5,
-                        r: 8,
-                        fill: '#fff',
-                        stroke: '#1890ff',
-                        lineWidth: 1
-                    },
-                    name: 'badge-circle'
+            if (childNode) {
+                // Show the node and update its position with animation
+                graph.showItem(childNode);
+                graph.updateItem(childNode, {
+                    x: childX,
+                    y: childY
                 });
                 
-                group.addShape('text', {
-                    attrs: {
-                        text: cfg.level,
-                        x: size / 2 - 5,
-                        y: -size / 2 + 5,
-                        textAlign: 'center',
-                        textBaseline: 'middle',
-                        fontSize: 10,
-                        fontWeight: 'bold',
-                        fill: '#1890ff'
-                    },
-                    name: 'badge-text'
+                // Show edge from group to child
+                edges.forEach(edge => {
+                    const edgeModel = edge.getModel();
+                    if (edgeModel.source === groupNodeId && edgeModel.target === childId) {
+                        graph.showItem(edge);
+                    }
                 });
             }
-            
-            return circle;
-        },
-        
-        // Update node style when state changes
-        setState(name, value, item) {
-            return
-            const group = item.getContainer();
-            const shape = group.get('children')[0]; // Get the circle shape
-            
-            if (name === 'hover') {
-                if (value) {
-                    shape.attr('lineWidth', 3);
-                    shape.attr('shadowColor', '#1890ff');
-                    shape.attr('shadowBlur', 10);
-                } else {
-                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
-                    shape.attr('shadowColor', null);
-                    shape.attr('shadowBlur', 0);
-                }
-            }
-            
-            if (name === 'selected') {
-                if (value) {
-                    shape.attr('stroke', '#ff4d4f');
-                    shape.attr('lineWidth', 3);
-                } else {
-                    shape.attr('stroke', shape.get('originAttrs').stroke || '#fff');
-                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
-                }
-            }
         }
-    });
+        
+        // Update group node style to indicate expansion
+        graph.updateItem(groupNode, {
+            expanded: true,
+            style: {
+                fill: '#e6f7ff',
+                stroke: '#1890ff',
+                lineWidth: 2
+            }
+        });
+    }
+    
+    // Update the graph
+    graph.refreshPositions();
 }
 
 // Initialize G6 graph
@@ -496,7 +593,7 @@ function initGraph() {
         width: container.offsetWidth,
         height: container.offsetHeight,
         modes: {
-            default: ['drag-canvas', 'zoom-canvas', 'drag-node', 'activate-relations'],
+            default: ['drag-canvas', 'drag-node', 'activate-relations'],
             edit: ['click-select']
         },
         defaultNode: {
@@ -611,108 +708,84 @@ function initGraph() {
     return graph;
 }
 
-// Toggle group expansion
-function toggleGroupExpansion(groupId) {
-    const graph = window.skillGraph; // Get the graph instance from the window object
-    if (!graph) return;
-    
-    // Find the group node
-    const groupNodeId = `group-${groupId}`;
-    const groupNode = graph.findById(groupNodeId);
-    if (!groupNode) return;
-    
-    const groupModel = groupNode.getModel();
-    const isExpanded = groupModel.expanded === true;
-    
-    // Find all child nodes
-    const childNodes = [];
-    const childEdges = [];
-    
-    // Get all nodes and edges
-    const nodes = graph.getNodes();
-    const edges = graph.getEdges();
-    
-    // Find children of this group
-    const group = nodeGroups[groupId];
-    if (!group) return;
-    
-    const childIds = group.children || [];
-    
-    if (isExpanded) {
-        // Collapse: Hide all child nodes and edges
-        childIds.forEach(childId => {
-            const childNode = graph.findById(childId);
-            if (childNode) {
-                graph.hideItem(childNode);
-                
-                // Hide edges connected to this child
-                edges.forEach(edge => {
-                    const edgeModel = edge.getModel();
-                    if (edgeModel.source === childId || edgeModel.target === childId) {
-                        graph.hideItem(edge);
-                    }
-                });
-            }
-        });
-        
-        // Update group node style
-        graph.updateItem(groupNode, {
-            expanded: false,
-            style: {
-                fill: '#fff',
-                stroke: '#1890ff',
-                lineWidth: 2
-            }
-        });
-        
-    } else {
-        // Expand: Show all child nodes in a flower pattern
-        const centerX = groupModel.x;
-        const centerY = groupModel.y;
-        const radius = 60; // Distance from center
-        
-        const visibleChildCount = Math.min(childIds.length, 6);
-        
-        // Show and position child nodes in a flower pattern
-        for (let i = 0; i < visibleChildCount; i++) {
-            const angle = (i * 2 * Math.PI) / visibleChildCount;
-            const childX = centerX + radius * Math.cos(angle);
-            const childY = centerY + radius * Math.sin(angle);
-            const childId = childIds[i];
+// Register custom node with badge
+function registerCustomNode() {
+    G6.registerNode('node-with-badge', {
+        draw(cfg, group) {
+            const { size, style, labelCfg } = cfg;
             
-            const childNode = graph.findById(childId);
-            if (childNode) {
-                // Show the node and update its position with animation
-                graph.showItem(childNode);
-                graph.updateItem(childNode, {
-                    x: childX,
-                    y: childY
+            // Draw main circle
+            const circle = group.addShape('circle', {
+                attrs: {
+                    x: 0,
+                    y: 0,
+                    r: size / 2,
+                    ...style
+                },
+                name: 'circle-shape'
+            });
+            
+            // Draw badge if level is provided
+            if (cfg.level) {
+                group.addShape('circle', {
+                    attrs: {
+                        x: size / 2 - 5,
+                        y: -size / 2 + 5,
+                        r: 8,
+                        fill: '#fff',
+                        stroke: '#1890ff',
+                        lineWidth: 1
+                    },
+                    name: 'badge-circle'
                 });
                 
-                // Show edge from group to child
-                edges.forEach(edge => {
-                    const edgeModel = edge.getModel();
-                    if ((edgeModel.source === groupNodeId && edgeModel.target === childId) ||
-                        (edgeModel.target === groupNodeId && edgeModel.source === childId)) {
-                        graph.showItem(edge);
-                    }
+                group.addShape('text', {
+                    attrs: {
+                        text: cfg.level,
+                        x: size / 2 - 5,
+                        y: -size / 2 + 5,
+                        textAlign: 'center',
+                        textBaseline: 'middle',
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                        fill: '#1890ff'
+                    },
+                    name: 'badge-text'
                 });
+            }
+            
+            return circle;
+        },
+        
+        // Update node style when state changes
+        setState(name, value, item) {
+            return
+            const group = item.getContainer();
+            const shape = group.get('children')[0]; // Get the circle shape
+            
+            if (name === 'hover') {
+                if (value) {
+                    shape.attr('lineWidth', 3);
+                    shape.attr('shadowColor', '#1890ff');
+                    shape.attr('shadowBlur', 10);
+                } else {
+                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
+                    shape.attr('shadowColor', null);
+                    shape.attr('shadowBlur', 0);
+                }
+            }
+            
+            if (name === 'selected') {
+                if (value) {
+                    shape.attr('stroke', '#ff4d4f');
+                    shape.attr('lineWidth', 3);
+                } else {
+                    shape.attr('stroke', shape.get('originAttrs').stroke || '#fff');
+                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
+                }
             }
         }
-        
-        // Update group node style to indicate expansion
-        graph.updateItem(groupNode, {
-            expanded: true,
-            style: {
-                fill: '#e6f7ff',
-                stroke: '#1890ff',
-                lineWidth: 2
-            }
-        });
-    }
-    
-    // Update the graph
-    graph.refreshPositions();
+    });
 }
 
 // Show node details in the detail panel
