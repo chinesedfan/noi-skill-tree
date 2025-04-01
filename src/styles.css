@@ -1,0 +1,168 @@
+/* Main styling for NOI Skill Tree */
+:root {
+    --level-1-color: #e6f7ff;
+    --level-2-color: #bae7ff;
+    --level-3-color: #91d5ff;
+    --level-4-color: #69c0ff;
+    --level-5-color: #40a9ff;
+    --level-6-color: #1890ff;
+    --level-7-color: #096dd9;
+    --level-8-color: #0050b3;
+    --level-9-color: #003a8c;
+    --level-10-color: #002766;
+    --highlight-color: #ffcc00;
+    --border-color: #d9d9d9;
+    --background-color: #f5f5f5;
+    --header-bg-color: #f0f0f0;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    color: #1890ff;
+    margin-bottom: 30px;
+}
+
+/* Table styling */
+.skill-table-container {
+    overflow-x: auto;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+.skill-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.skill-table th, .skill-table td {
+    border: 1px solid var(--border-color);
+    padding: 15px;
+    vertical-align: top;
+}
+
+.skill-table thead th {
+    background-color: var(--header-bg-color);
+    font-weight: bold;
+    text-align: center;
+    padding: 12px;
+}
+
+.skill-table tbody th {
+    background-color: var(--header-bg-color);
+    font-weight: bold;
+    text-align: right;
+    width: 100px;
+}
+
+.corner-cell {
+    background-color: #e8e8e8 !important;
+}
+
+.skill-cell {
+    min-height: 150px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Skill item styling */
+.skill-item {
+    margin-bottom: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.skill-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.skill-item.highlighted {
+    box-shadow: 0 0 0 2px var(--highlight-color);
+}
+
+.skill-item .difficulty {
+    display: inline-block;
+    margin-right: 6px;
+    font-weight: bold;
+}
+
+/* Difficulty level colors */
+.level-1 { background-color: var(--level-1-color); }
+.level-2 { background-color: var(--level-2-color); }
+.level-3 { background-color: var(--level-3-color); color: white; }
+.level-4 { background-color: var(--level-4-color); color: white; }
+.level-5 { background-color: var(--level-5-color); color: white; }
+.level-6 { background-color: var(--level-6-color); color: white; }
+.level-7 { background-color: var(--level-7-color); color: white; }
+.level-8 { background-color: var(--level-8-color); color: white; }
+.level-9 { background-color: var(--level-9-color); color: white; }
+.level-10 { background-color: var(--level-10-color); color: white; }
+
+/* Detail panel styling */
+.detail-panel {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: none;
+}
+
+.detail-panel h3 {
+    margin-top: 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    color: #1890ff;
+}
+
+/* Dependency graph styling */
+.dependency-graph {
+    height: 400px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+    display: none;
+}
+
+/* Animation for highlighting */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 204, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 204, 0, 0); }
+}
+
+.pulse {
+    animation: pulse 1.5s infinite;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .skill-table th, .skill-table td {
+        padding: 10px;
+    }
+    
+    .skill-table tbody th {
+        width: 80px;
+    }
+}
