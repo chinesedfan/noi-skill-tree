@@ -139,16 +139,16 @@ function getCategoryAndLevel(nodeId) {
 // Get color for level
 function getColorForLevel(level) {
     const colorMap = {
-        1: '#e6f7ff',
-        2: '#bae7ff',
-        3: '#91d5ff',
-        4: '#69c0ff',
-        5: '#40a9ff',
-        6: '#1890ff',
-        7: '#096dd9',
-        8: '#0050b3',
-        9: '#003a8c',
-        10: '#002766'
+        1: 'grey',
+        2: 'grey',
+        3: 'green',
+        4: 'green',
+        5: '#03a89e',
+        6: 'blue',
+        7: '#a0a',
+        8: '#ff8c00',
+        9: 'red',
+        10: 'red'
     };
     
     return colorMap[level] || '#91d5ff';
@@ -358,7 +358,7 @@ function createGraphData() {
                 
                 // Create child nodes (initially hidden)
                 const childIds = nodeInfo.children || [];
-                const petalCount = Math.min(childIds.length, 6);
+                const petalCount = childIds.length;
                 const radius = 60;
                 
                 for (let i = 0; i < petalCount; i++) {
@@ -380,19 +380,18 @@ function createGraphData() {
                                 fill: getColorForLevel(childNode.data.level),
                                 stroke: '#fff',
                                 lineWidth: 1,
-                                opacity: 0 // Initially hidden
                             },
                             labelCfg: {
                                 position: 'bottom',
                                 offset: 5,
                                 style: {
                                     fill: getTextColorForLevel(childNode.data.level),
-                                    opacity: 0 // Hide the label
                                 }
                             },
                             level: childNode.data.level,
                             originalId: childId,
                             tooltip: childNode.label,
+                            visible: false,
                             zIndex: 3
                         };
                         
@@ -405,7 +404,6 @@ function createGraphData() {
                             style: {
                                 stroke: '#ccc',
                                 endArrow: false,
-                                opacity: 0 // Initially hidden
                             }
                         });
                     }
@@ -505,29 +503,7 @@ function toggleGroupExpansion(groupId) {
         childIds.forEach(childId => {
             const childNode = graph.findById(childId);
             if (childNode) {
-                // Instead of hiding, we'll update the node to have opacity 0
-                graph.updateItem(childNode, {
-                    style: {
-                        opacity: 0
-                    },
-                    labelCfg: {
-                        style: {
-                            opacity: 0 // Hide the label
-                        }
-                    }
-                });
-                
-                // Find and update edges connected to this child
-                graph.getEdges().forEach(edge => {
-                    const edgeModel = edge.getModel();
-                    if (edgeModel.source === groupNodeId && edgeModel.target === childId) {
-                        graph.updateItem(edge, {
-                            style: {
-                                opacity: 0
-                            }
-                        });
-                    }
-                });
+                graph.hideItem(childNode);
             }
         });
         
@@ -543,46 +519,15 @@ function toggleGroupExpansion(groupId) {
         
     } else {
         // Expand: Show all child nodes in a flower pattern
-        const centerX = groupModel.x;
-        const centerY = groupModel.y;
-        const radius = 60; // Distance from center
-        
-        const visibleChildCount = Math.min(childIds.length, 6);
+        const visibleChildCount = childIds.length;
         
         // Show and position child nodes in a flower pattern
         for (let i = 0; i < visibleChildCount; i++) {
-            const angle = (i * 2 * Math.PI) / visibleChildCount;
-            const childX = centerX + radius * Math.cos(angle);
-            const childY = centerY + radius * Math.sin(angle);
             const childId = childIds[i];
             
             const childNode = graph.findById(childId);
             if (childNode) {
-                // Instead of showing, we'll update the node to have opacity 1
-                graph.updateItem(childNode, {
-                    x: childX,
-                    y: childY,
-                    style: {
-                        opacity: 1
-                    },
-                    labelCfg: {
-                        style: {
-                            opacity: 1 // Show the label
-                        }
-                    }
-                });
-                
-                // Find and update edges connected to this child
-                graph.getEdges().forEach(edge => {
-                    const edgeModel = edge.getModel();
-                    if (edgeModel.source === groupNodeId && edgeModel.target === childId) {
-                        graph.updateItem(edge, {
-                            style: {
-                                opacity: 1
-                            }
-                        });
-                    }
-                });
+                graph.showItem(childNode);
             }
         }
         
@@ -865,7 +810,6 @@ function registerCustomNode() {
         
         // Update node style when state changes
         setState(name, value, item) {
-            return
             const group = item.getContainer();
             const shape = group.get('children')[0]; // Get the circle shape
             
@@ -875,7 +819,7 @@ function registerCustomNode() {
                     shape.attr('shadowColor', '#1890ff');
                     shape.attr('shadowBlur', 10);
                 } else {
-                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
+                    shape.attr('lineWidth', 1);
                     shape.attr('shadowColor', null);
                     shape.attr('shadowBlur', 0);
                 }
@@ -886,8 +830,8 @@ function registerCustomNode() {
                     shape.attr('stroke', '#ff4d4f');
                     shape.attr('lineWidth', 3);
                 } else {
-                    shape.attr('stroke', shape.get('originAttrs').stroke || '#fff');
-                    shape.attr('lineWidth', shape.get('originAttrs').lineWidth || 1);
+                    shape.attr('stroke', '#fff');
+                    shape.attr('lineWidth', 1);
                 }
             }
         }

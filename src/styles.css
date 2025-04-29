@@ -1,15 +1,15 @@
 /* Main styling for NOI Skill Tree */
 :root {
-    --level-1-color: #e6f7ff;
-    --level-2-color: #bae7ff;
-    --level-3-color: #91d5ff;
-    --level-4-color: #69c0ff;
-    --level-5-color: #40a9ff;
-    --level-6-color: #1890ff;
-    --level-7-color: #096dd9;
-    --level-8-color: #0050b3;
-    --level-9-color: #003a8c;
-    --level-10-color: #002766;
+    --level-1-color: grey;
+    --level-2-color: grey;
+    --level-3-color: green;
+    --level-4-color: green;
+    --level-5-color: #03a89e;
+    --level-6-color: blue;
+    --level-7-color: #a0a;
+    --level-8-color: #ff8c00;
+    --level-9-color: red;
+    --level-10-color: red;
     --highlight-color: #ffcc00;
     --border-color: #d9d9d9;
     --background-color: #f5f5f5;
