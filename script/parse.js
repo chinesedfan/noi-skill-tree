@@ -1,5 +1,6 @@
 // https://zhuanlan.zhihu.com/p/364137955
-const lines = require('fs').readFileSync('./raw.txt', 'utf8').split('\n')
+const path = require('path')
+const lines = require('fs').readFileSync(path.join(__dirname, './raw.txt'), 'utf8').split('\n')
 
 let prefix, dotCnt
 const nodes = [], combos = []
@@ -93,6 +94,7 @@ function saveNodeOrCombo(o) {
     if (o.data && o.data.level) {
         nodes.push(o)
     } else {
-        // combos.push(o)
+        // use as group nodes
+        combos.push(o)
     }
 }

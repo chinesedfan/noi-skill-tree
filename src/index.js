@@ -23,7 +23,6 @@ let ignoreCloseListener = false;
 
 // Process data to organize nodes
 function processData() {
-    // First pass: map nodes and identify parent-child relationships
     data.nodes.forEach(node => {
         // Store node in map for quick lookup
         nodeMap[node.id] = {
@@ -31,17 +30,6 @@ function processData() {
             children: [],
             parents: []
         };
-    });
-    
-    // Second pass: build parent-child relationships
-    data.edges.forEach(edge => {
-        const source = nodeMap[edge.source];
-        const target = nodeMap[edge.target];
-        
-        if (source && target) {
-            source.children.push(target.id);
-            target.parents.push(source.id);
-        }
     });
     
     // Group nodes by common prefixes (for flower diagrams)
@@ -64,42 +52,10 @@ function processData() {
         if (prefixMap[prefix].length > 2) {
             nodeGroups[prefix] = {
                 children: prefixMap[prefix],
-                label: findCommonLabel(prefixMap[prefix])
+                label: data.combos.find(node => node.id === prefix).label
             };
         }
     });
-}
-
-// Find common label prefix for a group of nodes
-function findCommonLabel(nodeIds) {
-    if (nodeIds.length === 0) return '';
-    
-    const labels = nodeIds.map(id => nodeMap[id].label);
-    const firstLabel = labels[0];
-    
-    // Find common words at the beginning
-    const words = firstLabel.split(/\s+/);
-    let commonPrefix = '';
-    
-    for (let i = 0; i < Math.min(3, words.length); i++) {
-        const currentPrefix = words.slice(0, i + 1).join(' ');
-        let isCommon = true;
-        
-        for (let j = 1; j < labels.length; j++) {
-            if (!labels[j].startsWith(currentPrefix)) {
-                isCommon = false;
-                break;
-            }
-        }
-        
-        if (isCommon) {
-            commonPrefix = currentPrefix;
-        } else {
-            break;
-        }
-    }
-    
-    return commonPrefix || '相关知识点';
 }
 
 // Truncate text to a certain length
@@ -439,37 +395,6 @@ function createGraphData() {
                 nodes.push(node);
             }
         });
-    });
-    
-    // Create edges between individual nodes
-    data.edges.forEach(edge => {
-        // Skip edges if either source or target is in a group
-        let sourceInGroup = false;
-        let targetInGroup = false;
-        
-        for (const groupId in nodeGroups) {
-            if (nodeGroups[groupId].children.includes(edge.source)) {
-                sourceInGroup = true;
-            }
-            if (nodeGroups[groupId].children.includes(edge.target)) {
-                targetInGroup = true;
-            }
-        }
-        
-        if (!sourceInGroup && !targetInGroup) {
-            edges.push({
-                source: edge.source,
-                target: edge.target,
-                style: {
-                    stroke: '#ccc',
-                    lineWidth: 1,
-                    endArrow: {
-                        path: G6.Arrow.triangle(4, 6, 0),
-                        fill: '#ccc'
-                    }
-                }
-            });
-        }
     });
     
     return {
