@@ -19,6 +19,8 @@ const levels = [
 const nodeMap = {};
 const nodeGroups = {};
 
+let ignoreCloseListener = false;
+
 // Process data to organize nodes
 function processData() {
     // First pass: map nodes and identify parent-child relationships
@@ -548,6 +550,8 @@ function toggleGroupExpansion(groupId) {
 
 // Function to show drawer with group node children
 function showDrawer(groupId, childIds) {
+    ignoreCloseListener = true;
+
     const drawer = document.getElementById('drawer-panel');
     const drawerTitle = document.getElementById('drawer-title');
     const drawerList = document.getElementById('drawer-list');
@@ -603,18 +607,19 @@ function showDrawer(groupId, childIds) {
     // Show the drawer
     drawer.style.display = 'flex';
     setTimeout(() => {
+        ignoreCloseListener = false;
         drawer.classList.add('open');
-    }, 10);
+    }, 0);
 }
 
 // Close drawer when close button is clicked
-document.getElementById('close-drawer').addEventListener('click', () => {
+function closeDrawer() {
     const drawer = document.getElementById('drawer-panel');
     drawer.classList.remove('open');
     setTimeout(() => {
         drawer.style.display = 'none';
     }, 300); // Wait for transition to complete
-});
+}
 
 // Initialize G6 graph
 function initGraph() {
@@ -719,13 +724,25 @@ function initGraph() {
     graph.render();
     
     // Add event listeners
+    let prevSelectedItem = null;
     graph.on('node:click', (e) => {
+        if (prevSelectedItem) {
+            const prevModel = prevSelectedItem.getModel();
+            if (prevModel.isGroup) {
+                toggleGroupExpansion(prevModel.groupId);
+            } else if (prevModel.originalId) {
+                showNodeDetails(prevModel.originalId);
+            }
+
+            graph.clearItemStates(prevSelectedItem, 'selected');
+        }
+        if (prevSelectedItem === e.item) {
+            prevSelectedItem = null;
+            return;
+        }
+        prevSelectedItem = e.item;
+
         const model = e.item.getModel();
-        
-        // Clear previous selections
-        graph.getNodes().forEach(node => {
-            graph.clearItemStates(node);
-        });
         
         // Set selected state
         graph.setItemState(e.item, 'selected', true);
@@ -812,28 +829,6 @@ function registerCustomNode() {
         setState(name, value, item) {
             const group = item.getContainer();
             const shape = group.get('children')[0]; // Get the circle shape
-            
-            if (name === 'hover') {
-                if (value) {
-                    shape.attr('lineWidth', 3);
-                    shape.attr('shadowColor', '#1890ff');
-                    shape.attr('shadowBlur', 10);
-                } else {
-                    shape.attr('lineWidth', 1);
-                    shape.attr('shadowColor', null);
-                    shape.attr('shadowBlur', 0);
-                }
-            }
-            
-            if (name === 'selected') {
-                if (value) {
-                    shape.attr('stroke', '#ff4d4f');
-                    shape.attr('lineWidth', 3);
-                } else {
-                    shape.attr('stroke', '#fff');
-                    shape.attr('lineWidth', 1);
-                }
-            }
         }
     });
 }
@@ -887,8 +882,10 @@ function init() {
     // Store graph instance in window for access in other functions
     window.skillGraph = graph;
     
-    // Set up close button for detail panel
-    document.getElementById('close-detail').addEventListener('click', () => {
+    document.body.addEventListener('click', () => {
+        if (ignoreCloseListener) return;
+
+        closeDrawer();
         document.getElementById('detail-panel').style.display = 'none';
     });
 }
