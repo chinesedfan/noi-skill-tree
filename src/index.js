@@ -117,6 +117,10 @@ function getTextColorForLevel(level) {
     return level > 2 ? '#fff' : '#333';
 }
 
+function getNodeType(node) {
+    return node.getID().split('-')[0]
+}
+
 // Create G6 graph data
 function createGraphData() {
     const nodes = [];
@@ -359,6 +363,7 @@ function createGraphData() {
                         edges.push({
                             source: nodeInfo.id,
                             target: childId,
+                            visible: false,
                             style: {
                                 stroke: '#ccc',
                                 endArrow: false,
@@ -425,16 +430,23 @@ function toggleGroupExpansion(groupId) {
     // Show drawer with child nodes information
     showDrawer(groupId, childIds);
     
+    // --- 自动旋转相关全局变量 ---
+    const groupRotationState = {}; // { [groupId]: { angle, timer } }
+
     if (isExpanded) {
-        // Collapse: Update child nodes to be invisible
+        // Collapse: hide children nodes and stop rotation
         childIds.forEach(childId => {
             const childNode = graph.findById(childId);
             if (childNode) {
                 graph.hideItem(childNode);
             }
         });
-        
-        // Update group node style
+        // 停止自动旋转
+        if (groupRotationState[groupId] && groupRotationState[groupId].timer) {
+            cancelAnimationFrame(groupRotationState[groupId].timer);
+            delete groupRotationState[groupId];
+        }
+        // Update group node style to indicate collapse
         graph.updateItem(groupNode, {
             expanded: false,
             style: {
@@ -443,21 +455,38 @@ function toggleGroupExpansion(groupId) {
                 lineWidth: 2
             }
         });
-        
     } else {
         // Expand: Show all child nodes in a flower pattern
         const visibleChildCount = childIds.length;
-        
-        // Show and position child nodes in a flower pattern
-        for (let i = 0; i < visibleChildCount; i++) {
-            const childId = childIds[i];
-            
+        const centerX = groupModel.x;
+        const centerY = groupModel.y;
+        const radius = 60;
+        // 初始化角度
+        let angleOffset = 0;
+        // 让子节点 zIndex 最大
+        childIds.forEach(childId => {
             const childNode = graph.findById(childId);
             if (childNode) {
                 graph.showItem(childNode);
             }
+        });
+        // 自动旋转动画
+        function animate() {
+            angleOffset += 0.01; // 控制旋转速度
+            for (let i = 0; i < visibleChildCount; i++) {
+                const angle = (i * 2 * Math.PI) / visibleChildCount + angleOffset;
+                const childId = childIds[i];
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                const childNode = graph.findById(childId);
+                if (childNode) {
+                    graph.updateItem(childNode, { x, y });
+                }
+            }
+            groupRotationState[groupId].timer = requestAnimationFrame(animate);
         }
-        
+        // 启动动画
+        groupRotationState[groupId] = { angle: 0, timer: requestAnimationFrame(animate) };
         // Update group node style to indicate expansion
         graph.updateItem(groupNode, {
             expanded: true,
@@ -476,6 +505,13 @@ function toggleGroupExpansion(groupId) {
 // Function to show drawer with group node children
 function showDrawer(groupId, childIds) {
     ignoreCloseListener = true;
+
+    // 左移 skill-tree-container，避免被 drawer 挡住
+    const container = document.getElementById('skill-tree-container');
+    if (container) {
+        container.style.transition = 'transform 0.3s';
+        container.style.transform = 'translateX(-180px)'; // 视 drawer 宽度可调整
+    }
 
     const drawer = document.getElementById('drawer-panel');
     const drawerTitle = document.getElementById('drawer-title');
@@ -543,6 +579,11 @@ function closeDrawer() {
     drawer.classList.remove('open');
     setTimeout(() => {
         drawer.style.display = 'none';
+        // 恢复 skill-tree-container 位置
+        const container = document.getElementById('skill-tree-container');
+        if (container) {
+            container.style.transform = '';
+        }
     }, 300); // Wait for transition to complete
 }
 
@@ -558,8 +599,9 @@ function initGraph() {
         container: 'skill-tree-container',
         width: container.offsetWidth,
         height: container.offsetHeight,
+        renderer: 'svg',
         modes: {
-            default: ['drag-canvas', 'drag-node', 'activate-relations'],
+            default: ['drag-canvas', 'drag-node'],
             edit: ['click-select']
         },
         defaultNode: {
